@@ -1,0 +1,26 @@
+{$DOMAIN} {
+	@api {
+		path /global/* /control/* /control-plane/* /event* /config* /experimental/* /file* /instance/* /mcp* /permission* /project* /pty* /question* /provider* /session* /sync* /tui* /workspace* /agent* /command* /log* /find* /lsp* /formatter* /path* /vcs* /auth*
+	}
+
+	handle @api {
+		reverse_proxy opencode:4096 {
+			transport http {
+				read_timeout 600s
+				write_timeout 600s
+				dial_timeout 30s
+			}
+			flush_interval -1
+		}
+	}
+
+	# Block web UI, OpenAPI docs, and everything else
+	handle {
+		respond "Not Found" 404
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}
