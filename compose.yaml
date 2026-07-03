@@ -25,6 +25,7 @@ services:
       - opencode-data:/root/.local/share/opencode
       - opencode-cache:/root/.cache/opencode
       - ./opencode.json:/root/.config/opencode/opencode.json:ro
+      - ./skills:/root/.config/opencode/skills:ro
       - ./projects:/projects
     networks:
       - fleet-net
