@@ -1,0 +1,108 @@
+services:
+  caddy:
+    image: caddy:2.11.4-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - opencode
+    networks:
+      - fleet-net
+    restart: unless-stopped
+
+  opencode:
+    image: ghcr.io/anomalyco/opencode:latest
+    command: ["web", "--hostname", "0.0.0.0", "--port", "4096"]
+    environment:
+      OPENCODE_SERVER_PASSWORD: ${OPENCODE_SERVER_PASSWORD}
+    volumes:
+      - opencode-data:/root/.local/share/opencode
+      - opencode-cache:/root/.cache/opencode
+      - ./opencode.json:/root/.config/opencode/opencode.json:ro
+      - ./projects:/projects
+    networks:
+      - fleet-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4096/global/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy:v0.4.2
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # --- Granted ---
+      CONTAINERS: 1
+      POST: 1
+      EXEC: 1
+      IMAGES: 1
+      BUILD: 1
+      VOLUMES: 1
+      ALLOW_START: 1
+      ALLOW_STOP: 1
+      ALLOW_RESTARTS: 1
+      # --- Granted by default (harmless) ---
+      EVENTS: 1
+      PING: 1
+      VERSION: 1
+      # --- Revoked (blocked, return 403) ---
+      AUTH: 0
+      SECRETS: 0
+      SWARM: 0
+      PLUGINS: 0
+      CONFIGS: 0
+      NODES: 0
+      SERVICES: 0
+      TASKS: 0
+      DISTRIBUTION: 0
+      GRPC: 0
+      SESSION: 0
+      SYSTEM: 0
+      NETWORKS: 0
+      INFO: 0
+      COMMIT: 0
+      ALLOW_PAUSE: 0
+      ALLOW_UNPAUSE: 0
+    networks:
+      - fleet-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:2375/version || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  playwright-mcp:
+    image: mcr.microsoft.com/playwright/mcp:latest
+    command: ["--port", "8931", "--host", "0.0.0.0", "--allowed-hosts", "*", "--user-data-dir", "/data/profile", "--caps", "pdf,storage,network"]
+    shm_size: 2gb
+    volumes:
+      - playwright-profile:/data/profile
+    networks:
+      - fleet-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- --spider http://localhost:8931/mcp || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+networks:
+  fleet-net:
+
+volumes:
+  opencode-data:
+  opencode-cache:
+  playwright-profile:
+  caddy-data:
+  caddy-config:
